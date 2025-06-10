@@ -2,13 +2,11 @@ from fastapi import FastAPI, Query, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 from fastapi.responses import JSONResponse
-import openai
 import os
 import json
 import faiss
 import math
 from sentence_transformers import SentenceTransformer
-from openai import OpenAIError
 from fastapi.middleware.cors import CORSMiddleware
 from .search import search_perfumes
 
@@ -22,7 +20,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ========== Load Model & Index ==========
 model = SentenceTransformer("all-mpnet-base-v2")
@@ -117,61 +114,7 @@ def perfume_search(
         "unisex": [to_model(r) for r in raw["top_unisex"]],
     }
 
-@app.post("/guided-search", response_model=SearchResponse)
-def guided_search(input: GuidedInput):
-    prompt = (
-        f"A user is looking for a fragrance. Mood: {input.mood}. "
-        f"Occasion: {input.occasion}. Preferred notes: {', '.join(input.notes)}. "
-        f"Gender preference: {input.gender}. "
-        f"Suggest search keywords for a fragrance recommendation system."
-    )
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
-    keywords = response['choices'][0]['message']['content']
-    raw = search_perfumes(keywords)
-    return {
-        "men": [to_model(r) for r in raw["top_men"]],
-        "women": [to_model(r) for r in raw["top_women"]],
-        "unisex": [to_model(r) for r in raw["top_unisex"]],
-    }
 
-@app.post("/reword")
-def reword_query(data: RewordInput):
-    prompt = (
-        f"The user entered a vague fragrance query: '{data.query}'. "
-        "Reword and expand it into a more descriptive search query using perfume-related vocabulary."
-    )
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.6,
-    )
-    refined_query = response['choices'][0]['message']['content']
-    return {"refined_query": refined_query}
-
-@app.post("/recommend", response_model=SearchResponse)
-def recommend_from_profile(profile: UserProfile):
-    note_str = ', '.join(profile.liked_notes)
-    prompt = (
-        f"A {profile.gender} user likes the notes: {note_str}. "
-        f"Disliked notes: {', '.join(profile.disliked_notes)}. "
-        "Suggest keywords for fragrance search."
-    )
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
-    keywords = response['choices'][0]['message']['content']
-    raw = search_perfumes(keywords)
-    return {
-        "men": [to_model(r) for r in raw["top_men"]],
-        "women": [to_model(r) for r in raw["top_women"]],
-        "unisex": [to_model(r) for r in raw["top_unisex"]],
-    }
 
 @app.get("/similar", response_model=List[PerfumeResult])
 def similar_perfumes(name: str = Query(..., min_length=2), top_k: int = 5):
@@ -186,35 +129,4 @@ def submit_survey(data: SurveyInput):
     user_survey_data[data.user_id] = data.dict()
     return {"success": True}
 
-@app.get("/recommend-from-survey/{user_id}", response_model=SearchResponse)
-def recommend_from_survey(user_id: str):
-    profile = user_survey_data.get(user_id)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Survey not found")
 
-    prompt = (
-        f"The user prefers {', '.join(profile['scent_families'])} scents, "
-        f"{profile['strength'].lower()} strength, for {profile['occasion'].lower()} occasions, "
-        f"and is shopping for the {profile['season'].lower()} season. "
-        "Recommend fragrance search keywords."
-    )
-
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
-    keywords = response['choices'][0]['message']['content']
-    raw = search_perfumes(keywords)
-    return {
-        "men": [to_model(r) for r in raw["top_men"]],
-        "women": [to_model(r) for r in raw["top_women"]],
-        "unisex": [to_model(r) for r in raw["top_unisex"]],
-    }
-
-@app.exception_handler(OpenAIError)
-async def openai_error_handler(request, exc):
-    return JSONResponse(
-        status_code=500,
-        content={"error": "OpenAI API error", "details": str(exc)},
-    )
