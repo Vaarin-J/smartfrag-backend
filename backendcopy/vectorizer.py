@@ -5,7 +5,7 @@ import faiss
 import json
 from tqdm import tqdm  # <-- global progress bar
 
-MODEL_NAME = "all-MiniLM-L6-v2"
+MODEL_NAME = "all-mpnet-base-v2"
 INDEX_PATH  = "backendcopy/data/perfumes1.faiss"
 ID_MAP_PATH = "backendcopy/data/id_map1.json"
 

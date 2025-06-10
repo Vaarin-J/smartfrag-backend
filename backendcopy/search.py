@@ -5,7 +5,7 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 
 # Load model
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("all-mpnet-base-v2")
 
 # Paths
 INDEX_PATH  = "backendcopy/data/perfumes1.faiss"

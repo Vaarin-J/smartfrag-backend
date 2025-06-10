@@ -25,7 +25,7 @@ app.add_middleware(
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ========== Load Model & Index ==========
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("all-mpnet-base-v2")
 INDEX_PATH = "backendcopy/data/perfumes1.faiss"
 ID_MAP_PATH = "backendcopy/data/id_map1.json"
 index = faiss.read_index(INDEX_PATH)
